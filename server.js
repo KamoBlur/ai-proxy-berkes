@@ -46,10 +46,11 @@ app.get("/api", async (req, res) => {
   if (!question) return res.json({ reply: "Kérlek, írj be egy kérdést!" });
 
   const models = [
-    { id: "google/gemini-flash-1.5:free", name: "Gemini Flash 1.5" },
-    { id: "google/gemma-3-27b:free", name: "Gemma 3 27B" },
-    { id: "mistralai/mixtral-8x7b-instruct", name: "Mixtral 8x7B" },
-  ];
+  "google/gemini-flash-1.5",
+  "google/gemma-3-27b",
+  "mistralai/mixtral-8x7b-instruct"
+];
+
 
   for (const model of models) {
     try {
@@ -72,3 +73,4 @@ const PORT = process.env.PORT || 3000;
 app.listen(PORT, () =>
   console.log(`🚀 AI proxy fut a ${PORT} porton, fallback aktív!`)
 );
+
