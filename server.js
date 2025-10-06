@@ -26,7 +26,7 @@ app.get("/api", async (req, res) => {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "mistralai/mixtral-8x7b", // jó minőségű, gyors modell
+        model: "mistralai/mixtral-8x7b", // jó minőségű modell
         messages: [
           { role: "system", content: "Te egy magyar könyvelési asszisztens vagy. Röviden, pontosan válaszolj." },
           { role: "user", content: question },
@@ -35,8 +35,17 @@ app.get("/api", async (req, res) => {
     });
 
     const data = await response.json();
+
+    if (!response.ok) {
+      console.error("OpenRouter API error:", data);
+      return res.json({
+        reply: "OpenRouter API hiba történt: " + (data.error?.message || "ismeretlen hiba"),
+      });
+    }
+
     const reply = data?.choices?.[0]?.message?.content || "Sajnálom, nem találtam választ a kérdésedre.";
     res.json({ reply });
+
   } catch (error) {
     console.error("AI proxy hiba:", error);
     res.json({ reply: "A szerver nem tudta lekérni a választ." });
