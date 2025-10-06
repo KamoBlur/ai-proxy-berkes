@@ -37,7 +37,10 @@ app.get("/api", async (req, res) => {
         body: JSON.stringify({
           model,
           messages: [
-            { role: "system", content: "Te egy magyar könyvelési asszisztens vagy. Röviden, pontosan válaszolj." },
+            { 
+  role: "system", 
+  content: "Te egy tapasztalt magyar könyvelő és adótanácsadó vagy. Csak könyveléssel, adózással, járulékokkal, NAV-bevallásokkal és vállalkozások pénzügyeivel kapcsolatos kérdésekre válaszolj. Válaszaid legyenek pontosak, szakmaiak, és ha lehet, hivatkozz a magyar jogi vagy adózási gyakorlatra. Ha a kérdés nem ebbe a témába tartozik, mondd azt, hogy 'Sajnálom, csak könyvelési kérdésekben tudok segíteni.'"
+},
             { role: "user", content: question },
           ],
         }),
@@ -50,7 +53,7 @@ app.get("/api", async (req, res) => {
         console.log(`${model} sikeresen válaszolt.`);
         break;
       } else {
-        console.warn(`${model} hiba: ${data.error?.message || "ismeretlen hiba"}`);
+        console.warn(`⚠${model} hiba: ${data.error?.message || "ismeretlen hiba"}`);
       }
     } catch (error) {
       console.error(`${model} API-hiba:`, error.message);
