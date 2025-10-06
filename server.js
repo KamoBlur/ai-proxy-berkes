@@ -6,38 +6,38 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// ✅ Proxy endpoint az AI-hoz
-app.post("/ask", async (req, res) => {
-  const question = req.body.question || "";
-  if (!question.trim()) {
-    return res.json({ response: "Kérlek, írj be egy kérdést!" });
+app.get("/", (req, res) => {
+  res.send("AI proxy is running! 🚀");
+});
+
+// 🔹 API végpont a PHP számára
+app.get("/api", async (req, res) => {
+  const question = req.query.q;
+
+  if (!question) {
+    return res.json({ reply: "Kérlek, írj be egy kérdést!" });
   }
 
-  const prompt = `Te egy magyar könyvelési asszisztens vagy.
-Csak könyveléssel, adózással, vállalkozással, ÁFA-val, NAV-val kapcsolatos kérdésekre válaszolj.
-Ha más témát kapsz, válaszolj így: "Sajnálom, ebben a témában nem tudok segíteni."
-
-Kérdés: ${question}`;
-
   try {
-    const hfRes = await fetch(
-      "https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct",
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ inputs: prompt }),
-      }
-    );
+    // Itt hívhatod az Ollama API-t, OpenAI-t vagy bármi mást
+    // Most példaként az ollama local endpointot hívjuk:
+    const response = await fetch("http://localhost:11434/api/generate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "gemma3:1b",
+        prompt: question
+      })
+    });
 
-    const data = await hfRes.json();
-    let text = data[0]?.generated_text || "Sajnálom, nem találtam választ.";
-    res.json({ response: text });
-  } catch (err) {
-    res.json({ response: "⚠️ Hiba történt az AI lekérése közben." });
+    const data = await response.json();
+    res.json({ reply: data.response || "Nem találtam választ a kérdésedre." });
+  } catch (error) {
+    console.error("AI proxy hiba:", error);
+    res.json({ reply: "⚠️ A szerver nem tudta lekérni a választ." });
   }
 });
 
-app.get("/", (req, res) => res.send("AI proxy is running! 🚀"));
-
+// 🔹 Port beállítása (Render automatikusan adja)
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+app.listen(PORT, () => console.log(`✅ AI proxy fut a ${PORT} porton`));
