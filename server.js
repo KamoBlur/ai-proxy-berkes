@@ -6,65 +6,89 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Alap teszt endpoint
 app.get("/", (req, res) => {
-  res.send("AI proxy is running with OpenRouter (Gemini 2.0 Flash)!");
+  res.send("✅ AI proxy is running with fallback & timing system! 🚀");
 });
 
-// API végpont a PHP számára
+// 🔧 Segédfüggvény az OpenRouter API híváshoz
+async function askOpenRouter(model, question) {
+  const start = Date.now(); // mérjük az időt
+
+  const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${process.env.OPENROUTER_API_KEY}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model,
+      messages: [
+        {
+          role: "system",
+          content:
+            "Te egy magyar könyvelési asszisztens vagy. Röviden, pontosan és szakmailag helyesen válaszolj magyarul.",
+        },
+        { role: "user", content: question },
+      ],
+    }),
+  });
+
+  const duration = ((Date.now() - start) / 1000).toFixed(2); // másodpercben
+  const data = await response.json();
+
+  if (!response.ok || !data?.choices?.[0]?.message?.content) {
+    throw new Error(
+      `API-hiba (${model}): ${data?.error?.message || "nincs válasz"}`
+    );
+  }
+
+  const reply = data.choices[0].message.content.trim();
+  return { reply, duration };
+}
+
+// 🔹 API végpont (PHP / frontend hívja)
 app.get("/api", async (req, res) => {
   const question = req.query.q;
-
   if (!question) {
     return res.json({ reply: "Kérlek, írj be egy kérdést!" });
   }
 
-  try {
-    // Hívás az OpenRouter API-hoz
-    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${process.env.OPENROUTER_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-2.0-flash-exp",
-        messages: [
-          {
-            role: "system",
-            content: "Te egy magyar könyvelési asszisztens vagy. Röviden, érthetően és szakmailag pontosan válaszolj magyarul.",
-          },
-          {
-            role: "user",
-            content: question,
-          },
-        ],
-      }),
-    });
+  // Próbálkozási sorrend — első működő válasz nyer
+  const models = [
+    { id: "google/gemini-2.0-flash-exp", name: "Gemini 2.0 Flash" },
+    { id: "google/gemma-3-12b", name: "Gemma 3 12B" },
+    { id: "mistralai/mixtral-8x7b", name: "Mixtral 8x7B" },
+  ];
 
-    const data = await response.json();
+  for (const model of models) {
+    try {
+      console.log(`🔹 Próbálkozás: ${model.name} (${model.id})`);
+      const { reply, duration } = await askOpenRouter(model.id, question);
 
-    if (!response.ok) {
-      console.error("OpenRouter API hiba:", data);
+      console.log(
+        `✅ ${model.name} sikeresen válaszolt ${duration} másodperc alatt.`
+      );
+
       return res.json({
-        reply:
-          "OpenRouter API hiba történt: " +
-          (data.error?.message || "ismeretlen hiba"),
+        reply,
+        model: model.name,
+        time: `${duration} s`,
       });
+    } catch (error) {
+      console.warn(`⚠️ ${model.name} hiba: ${error.message}`);
     }
-
-    const reply =
-      data?.choices?.[0]?.message?.content ||
-      "Sajnálom, nem találtam választ a kérdésedre.";
-    res.json({ reply });
-  } catch (error) {
-    console.error("AI proxy hiba:", error);
-    res.json({ reply: "A szerver nem tudta lekérni a választ." });
   }
+
+  // Ha semelyik modell nem válaszolt
+  res.json({
+    reply:
+      "❌ Egyik modell sem adott választ. Kérlek, próbáld meg később vagy ellenőrizd az API-kulcsot.",
+    model: "N/A",
+  });
 });
 
-// Port beállítása (Render automatikusan adja)
+// 🔹 Port beállítása (Render automatikusan adja)
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () =>
-  console.log(`AI proxy fut a ${PORT} porton (Gemini 2.0 Flash)`)
-);
+app.listen(PORT, () => {
+  console.log(`🚀 AI proxy fut a ${PORT} porton, timing + fallback aktív!`);
+});
