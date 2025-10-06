@@ -7,12 +7,12 @@ app.use(cors());
 app.use(express.json());
 
 app.get("/", (req, res) => {
-  res.send("✅ AI proxy is running with fallback & timing system! 🚀");
+  res.send("✅ AI proxy is running with OpenRouter (Gemini + Fallback)! 🚀");
 });
 
 // 🔧 Segédfüggvény az OpenRouter API híváshoz
 async function askOpenRouter(model, question) {
-  const start = Date.now(); // mérjük az időt
+  const start = Date.now();
 
   const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
     method: "POST",
@@ -33,7 +33,7 @@ async function askOpenRouter(model, question) {
     }),
   });
 
-  const duration = ((Date.now() - start) / 1000).toFixed(2); // másodpercben
+  const duration = ((Date.now() - start) / 1000).toFixed(2);
   const data = await response.json();
 
   if (!response.ok || !data?.choices?.[0]?.message?.content) {
@@ -46,18 +46,15 @@ async function askOpenRouter(model, question) {
   return { reply, duration };
 }
 
-// 🔹 API végpont (PHP / frontend hívja)
+// 🔹 API végpont
 app.get("/api", async (req, res) => {
   const question = req.query.q;
-  if (!question) {
-    return res.json({ reply: "Kérlek, írj be egy kérdést!" });
-  }
+  if (!question) return res.json({ reply: "Kérlek, írj be egy kérdést!" });
 
-  // Próbálkozási sorrend — első működő válasz nyer
   const models = [
-    { id: "google/gemini-2.0-flash-exp", name: "Gemini 2.0 Flash" },
-    { id: "google/gemma-3-12b", name: "Gemma 3 12B" },
-    { id: "mistralai/mixtral-8x7b", name: "Mixtral 8x7B" },
+    { id: "google/gemini-2.0-flash-exp:free", name: "Gemini 2.0 Flash" },
+    { id: "google/gemma-3-12b:free", name: "Gemma 3 12B" },
+    { id: "mistralai/mixtral-8x7b-instruct:free", name: "Mixtral 8x7B" },
   ];
 
   for (const model of models) {
@@ -79,7 +76,6 @@ app.get("/api", async (req, res) => {
     }
   }
 
-  // Ha semelyik modell nem válaszolt
   res.json({
     reply:
       "❌ Egyik modell sem adott választ. Kérlek, próbáld meg később vagy ellenőrizd az API-kulcsot.",
@@ -87,8 +83,8 @@ app.get("/api", async (req, res) => {
   });
 });
 
-// 🔹 Port beállítása (Render automatikusan adja)
+// 🔹 Port (Render automatikusan adja)
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`🚀 AI proxy fut a ${PORT} porton, timing + fallback aktív!`);
-});
+app.listen(PORT, () =>
+  console.log(`🚀 AI proxy fut a ${PORT} porton, fallback aktív!`)
+);
