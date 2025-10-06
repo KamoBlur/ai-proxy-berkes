@@ -1,16 +1,17 @@
-import express from "express";
-import fetch from "node-fetch";
-import cors from "cors";
+const express = require("express");
+const fetch = require("node-fetch");
+const cors = require("cors");
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 
+// Alap útvonal
 app.get("/", (req, res) => {
   res.send("AI proxy is running! 🚀");
 });
 
-// 🔹 API végpont a PHP számára
+// API végpont a PHP számára
 app.get("/api", async (req, res) => {
   const question = req.query.q;
 
@@ -19,25 +20,15 @@ app.get("/api", async (req, res) => {
   }
 
   try {
-    // Itt hívhatod az Ollama API-t, OpenAI-t vagy bármi mást
-    // Most példaként az ollama local endpointot hívjuk:
-    const response = await fetch("http://localhost:11434/api/generate", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model: "gemma3:1b",
-        prompt: question
-      })
-    });
-
-    const data = await response.json();
-    res.json({ reply: data.response || "Nem találtam választ a kérdésedre." });
+    // Itt később beilleszthető a tényleges AI hívás (Ollama, OpenAI stb.)
+    // Most csak egy dummy válasz megy vissza:
+    res.json({ reply: `A kérdésed: "${question}" — de még csak teszt módban futok 🤖` });
   } catch (error) {
     console.error("AI proxy hiba:", error);
     res.json({ reply: "⚠️ A szerver nem tudta lekérni a választ." });
   }
 });
 
-// 🔹 Port beállítása (Render automatikusan adja)
+// Port beállítása
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`✅ AI proxy fut a ${PORT} porton`));
