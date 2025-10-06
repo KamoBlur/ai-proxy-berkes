@@ -7,29 +7,24 @@ app.use(cors());
 app.use(express.json());
 
 app.get("/", (req, res) => {
-  res.send("✅ AI proxy is running with OpenRouter! 🚀");
+  res.send("✅ AI proxy running with Gemini + Gemma + Mixtral fallback!");
 });
 
-// 🔹 Modellek (prioritási sorrendben)
+// 🔹 Modellek sorrendben
 const models = [
-  "google/gemini-flash-1.5",
-  "google/gemma-3-27b",
-  "mistralai/mixtral-8x7b-instruct"
+  "google/gemini-2.0-flash-exp",  // gyors, ingyenes
+  "google/gemma-3-27b-it",        // pontos, ingyenes
+  "mistralai/mixtral-8x7b-instruct" // tartalék, fizetős
 ];
 
-// 🔹 API végpont a PHP vagy front-end számára
 app.get("/api", async (req, res) => {
   const question = req.query.q;
-
-  if (!question) {
-    return res.json({ reply: "Kérlek, írj be egy kérdést!" });
-  }
+  if (!question) return res.json({ reply: "Kérlek, írj be egy kérdést!" });
 
   let reply = null;
 
   for (const model of models) {
     console.log(`🔹 Próbálkozás: ${model}`);
-
     try {
       const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
         method: "POST",
@@ -50,14 +45,13 @@ app.get("/api", async (req, res) => {
 
       if (response.ok && data?.choices?.[0]?.message?.content) {
         reply = data.choices[0].message.content;
-        console.log(`✅ ${model} sikeresen válaszolt`);
+        console.log(`✅ ${model} sikeresen válaszolt.`);
         break;
       } else {
         console.warn(`⚠️ ${model} hiba: ${data.error?.message || "ismeretlen hiba"}`);
       }
-
     } catch (error) {
-      console.error(`⚠️ ${model} API-hiba:`, error.message);
+      console.error(`❌ ${model} API-hiba:`, error.message);
     }
   }
 
@@ -68,6 +62,6 @@ app.get("/api", async (req, res) => {
   res.json({ reply });
 });
 
-// 🔹 Port beállítása (Render automatikusan adja)
+// 🔹 Port beállítása
 const PORT = process.env.PORT || 10000;
 app.listen(PORT, () => console.log(`🚀 AI proxy fut a ${PORT} porton, fallback aktív!`));
