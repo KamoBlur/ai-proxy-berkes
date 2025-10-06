@@ -26,7 +26,7 @@ app.get("/api", async (req, res) => {
         "Content-Type": "application/json",
       },
         body: JSON.stringify({
-        model: "mistralai/mixtral-8x7b-instruct", // helyes modell ID
+        model: "google/gemini-2.0-flash-exp",
         messages: [
           { role: "system", content: "Te egy magyar könyvelési asszisztens vagy. Röviden, pontosan válaszolj." },
           { role: "user", content: question },
@@ -55,4 +55,5 @@ app.get("/api", async (req, res) => {
 // Port beállítása (Render automatikusan adja)
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`AI proxy fut a ${PORT} porton`));
+
 
