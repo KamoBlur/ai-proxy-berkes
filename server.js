@@ -25,8 +25,8 @@ app.get("/api", async (req, res) => {
         "Authorization": `Bearer ${process.env.OPENROUTER_API_KEY}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({
-        model: "mistralai/mixtral-8x7b", // jó minőségű modell
+        body: JSON.stringify({
+        model: "mistralai/mixtral-8x7b-instruct", // helyes modell ID
         messages: [
           { role: "system", content: "Te egy magyar könyvelési asszisztens vagy. Röviden, pontosan válaszolj." },
           { role: "user", content: question },
@@ -55,3 +55,4 @@ app.get("/api", async (req, res) => {
 // Port beállítása (Render automatikusan adja)
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`AI proxy fut a ${PORT} porton`));
+
