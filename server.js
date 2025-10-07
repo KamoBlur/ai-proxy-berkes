@@ -7,79 +7,73 @@ app.use(cors());
 app.use(express.json());
 
 app.get("/", (req, res) => {
-  res.send("AI proxy running, próbál Gemini 2.0 Flash!");
+  res.send("AI proxy fut – Gemini 2.0 Flash (free) elsődleges, magyar nyelven!");
 });
 
-// Csak Gemini modell – de itt kipróbáljuk „text completion” módon
-const model = "google/gemini-2.0-flash-exp:free";
+// Modellek sorrendben (1: Gemini, 2: Gemma, 3: Mixtral)
+const models = [
+  "google/gemini-2.0-flash-exp:free",   // gyors, ingyenes, 2025-ös
+  "google/gemma-2-9b-it:free",          // pontos, free backup
+  "mistralai/mixtral-8x7b-instruct"     // fizetős tartalék
+];
 
 app.get("/api", async (req, res) => {
   const question = req.query.q;
   if (!question) return res.json({ reply: "Kérlek, írj be egy kérdést!" });
 
-  try {
-    console.log(`Próbál Gemini-vel: ${model}`);
-    const response = await fetch("https://openrouter.ai/api/v1/completions", {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${process.env.OPENROUTER_API_KEY}`,
-        "HTTP-Referer": "https://ai-proxy-berkes.onrender.com",
-        "X-Title": "AI Proxy Berkes",
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model,
-        prompt: question,
-        max_tokens: 256,
-      }),
-    });
+  let reply = null;
 
-    const data = await response.json();
-    console.log("Status:", response.status);
-    console.log("Data:", JSON.stringify(data));
+  for (const model of models) {
+    console.log(`Próbálkozás ezzel a modellel: ${model}`);
+    try {
+      const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${process.env.OPENROUTER_API_KEY}`,
+          "HTTP-Referer": "https://ai-proxy-berkes.onrender.com", // fontos!
+          "X-Title": "AI Proxy Berkes",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model,
+          messages: [
+            {
+              role: "system",
+              content:
+                "Te egy **magyar nyelvű**, tapasztalt könyvelő és adótanácsadó vagy. " +
+                "Minden válaszodat **magyar nyelven** add meg, hivatalos, udvarias stílusban. " +
+                "Csak könyveléssel, adózással, járulékokkal, NAV-bevallásokkal és vállalkozások pénzügyeivel kapcsolatos kérdésekre válaszolj. " +
+                "Ha a kérdés nem ebbe a témába tartozik, mondd azt, hogy: 'Sajnálom, csak könyvelési kérdésekben tudok segíteni.'"
+            },
+            { role: "user", content: question },
+          ],
+          max_tokens: 500,
+        }),
+      });
 
-    if (response.ok && data?.choices?.[0]?.text) {
-      const reply = data.choices[0].text;
-      return res.json({ reply });
-    } else {
-      console.warn("Gemini hiba:", data.error || data);
+      const data = await response.json();
+
+      // Ha sikeres válasz érkezett:
+      if (response.ok && data?.choices?.[0]?.message?.content) {
+        reply = data.choices[0].message.content;
+        console.log(`${model} sikeresen válaszolt.`);
+        break;
+      } else {
+        const err = data.error?.message || JSON.stringify(data);
+        console.warn(`${model} hiba: ${err}`);
+      }
+    } catch (error) {
+      console.error(`${model} API-hiba:`, error.message);
     }
-  } catch (err) {
-    console.error("Gemini API-hiba:", err);
   }
 
-  // Ha nem sikerült, fallback
-  console.log("Fallback: Mixtral");
-  const fallbackModel = "mistralai/mixtral-8x7b-instruct";
-  try {
-    const resp2 = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${process.env.OPENROUTER_API_KEY}`,
-        "HTTP-Referer": "https://ai-proxy-berkes.onrender.com",
-        "X-Title": "AI Proxy Berkes",
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: fallbackModel,
-        messages: [
-          { role: "system", content: "You are a helpful assistant." },
-          { role: "user", content: question },
-        ],
-      }),
-    });
-    const d2 = await resp2.json();
-    if (resp2.ok && d2.choices?.[0]?.message?.content) {
-      return res.json({ reply: d2.choices[0].message.content });
-    } else {
-      console.warn("Fallback hiba:", d2);
-    }
-  } catch (err2) {
-    console.error("Fallback API-hiba:", err2);
+  if (!reply) {
+    reply = "Egyik modell sem adott választ. Lehetséges, hogy az ingyenes modellek túlterheltek. Kérlek, próbáld meg később.";
   }
 
-  return res.json({ reply: "Nem sikerült választ kapni egyik modelltől sem." });
+  res.json({ reply });
 });
 
+// Port beállítása Render-hez
 const PORT = process.env.PORT || 10000;
-app.listen(PORT, () => console.log(`Server fut a ${PORT} porton`));
+app.listen(PORT, () => console.log(`AI proxy fut a ${PORT} porton – magyar Gemini mód aktív!`));
