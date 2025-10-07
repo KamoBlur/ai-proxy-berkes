@@ -1,6 +1,7 @@
 {
   "name": "ai-proxy-berkes",
   "version": "1.0.0",
+  "description": "AI proxy server using Gemma 2.0 + Gemini 2.0 with Hungarian accountant assistant.",
   "main": "server.js",
   "type": "module",
   "dependencies": {
@@ -10,5 +11,8 @@
   },
   "scripts": {
     "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18.x"
   }
 }
