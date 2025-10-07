@@ -47,10 +47,16 @@ async function getTaxContext(query) {
       const url = `https://api.duckduckgo.com/?q=${encodeURIComponent(source + " " + query)}&format=json`;
       const res = await fetch(url);
       const data = await res.json();
-
-      if (data?.AbstractText) allResults += data.AbstractText + "\n";
-      if (data?.RelatedTopics?.length) {
-        allResults += data.RelatedTopics.slice(0, 2)
+    
+      if (data?.AbstractText) {
+        allResults += "Forrás (összefoglaló): " + data.AbstractText + "\n";
+      } else if (data?.Heading && data?.RelatedTopics?.length) {
+        allResults += "Kapcsolódó: " + data.RelatedTopics[0].Text + "\n";
+      }
+    
+      // 🔹 további releváns találatok (ha több is van)
+      if (data?.RelatedTopics?.length > 1) {
+        allResults += data.RelatedTopics.slice(1, 3)
           .map(t => t.Text)
           .join("\n");
       }
@@ -117,7 +123,7 @@ app.get("/api", async (req, res) => {
 
   // 📊 Ellenőrizzük, hogy adózási / jogi témáról van-e szó
   const isTaxTopic = /(adó|járulék|kata|szja|bt|kft|vállalkozó|nav|bevallás|szabály|rendelet|törvény|mentesség)/i.test(question);
-  
+
   let externalContext = "";
   if (isTaxTopic) {
     console.log("🔍 Adózási vagy jogi téma észlelve, friss források lekérése...");
@@ -126,10 +132,10 @@ app.get("/api", async (req, res) => {
 
   // 📦 A modellnek küldött teljes prompt
   const contextualQuestion = `
-A mai dátum: ${currentDate}, ${currentDayName}.
-${externalContext ? `Friss információk hivatalos forrásokból:\n${externalContext}\n\n` : ""}
-Kérdés: ${question}
-`;
+  A mai dátum: ${currentDate}, ${currentDayName}.
+  ${externalContext ? `Friss információk hivatalos forrásokból:\n${externalContext}\n\n` : ""}
+  Kérdés: ${question}
+  `;
 
   // 🚀 AI modellek futtatása
   let reply = null;
@@ -156,4 +162,3 @@ const PORT = process.env.PORT || 10000;
 app.listen(PORT, () => {
   console.log(`🚀 AI proxy fut a ${PORT} porton – valós NAV és Jogtár lekérdezésekkel!`);
 });
-
