@@ -7,76 +7,58 @@ app.use(cors());
 app.use(express.json());
 
 app.get("/", (req, res) => {
-  res.send("AI proxy fut – Gemma 2.0 + Gemini 2.0 Flash + Mixtral fallback, magyar stílusban!");
+  res.send("AI proxy fut – magyar adózási asszisztens (Gemma/Gemini + valós NAV-adatok)");
 });
 
-// Modellek prioritási sorrendben
+// 🔹 AI modellek
 const MODELS = [
-  "google/gemma-2-9b-it:free",            // jó magyar nyelv, precíz
-  "google/gemini-2.0-flash-exp:free",     // gyors, de napi limitált
-  "meta-llama/llama-3.1-8b-instruct:free",// stabil, angol, de fordítható
-  "qwen/qwen-2-7b-instruct:free",         // kínai fejlesztés, de nagyon stabil, magyarul is elmegy
-  "microsoft/phi-3-mini-128k-instruct:free", // gyors és ingyenes
-  "mistralai/mixtral-8x7b-instruct"       // fizetős, de gyakran nyitott fallback
+  "google/gemini-2.0-flash-exp:free",
+  "google/gemma-2-9b-it:free",
+  "mistralai/mixtral-8x7b-instruct"
 ];
 
-app.get("/api", async (req, res) => {
-  const question = req.query.q;
-  if (!question) return res.json({ reply: "Kérlek, írj be egy kérdést!" });
+// 🔹 Alap rendszerprompt (szakmai, de természetes stílusban)
+const SYSTEM_PROMPT = `
+Te egy tapasztalt magyar könyvelő és adótanácsadó vagy.
+Mindig természetesen, közérthetően és pontosan válaszolj, mintha ügyfélnek magyaráznál.
+Csak könyveléssel, adózással, járulékokkal, NAV-bevallásokkal, jogszabályokkal és vállalkozások pénzügyeivel kapcsolatos kérdésekre válaszolj.
+Ha a kérdés nem ide tartozik, mondd azt: "Sajnálom, de csak könyvelési és adózási témákban tudok segíteni."
+`;
 
-  // Itt kezdődik az új dátum + nap logika
-  const dateObj = new Date();
-  const dayNames = ["vasárnap", "hétfő", "kedd", "szerda", "csütörtök", "péntek", "szombat"];
-  const currentDayName = dayNames[dateObj.getDay()];
+// 🔍 NAV / Kormány / Jogtár keresés (DuckDuckGo API-n keresztül)
+async function getTaxContext(query) {
+  try {
+    const sources = [
+      "site:nav.gov.hu",
+      "site:kormany.hu",
+      "site:net.jogtar.hu"
+    ];
 
-  const currentDate = dateObj.toLocaleDateString("hu-HU", { timeZone: "Europe/Budapest" });
-  const contextualQuestion = `A mai dátum: ${currentDate}, ${currentDayName}. ${question}`;
-  // Itt ér véget az új rész
+    let allResults = "";
 
-  let reply = null;
+    for (const source of sources) {
+      const url = `https://api.duckduckgo.com/?q=${encodeURIComponent(source + " " + query)}&format=json`;
+      const res = await fetch(url);
+      const data = await res.json();
 
-  for (const model of MODELS) {
-    console.log(`Próbálkozás a modellel: ${model}`);
-    reply = await askModel(contextualQuestion, model); // a kérdés helyett most a "contextualQuestion"-t küldjük
-    if (reply) {
-      console.log(`${model} sikeresen válaszolt.`);
-      break;
+      if (data?.AbstractText) allResults += data.AbstractText + "\n";
+      if (data?.RelatedTopics?.length) {
+        allResults += data.RelatedTopics.slice(0, 2)
+          .map(t => t.Text)
+          .join("\n");
+      }
     }
+
+    return allResults.trim();
+  } catch (e) {
+    console.warn("⚠️ NAV keresés sikertelen:", e.message);
+    return "";
   }
+}
 
-  if (!reply) {
-    reply = "Sajnálom, jelenleg nem tudtam elérni az AI szervert. Kérlek, próbáld meg később.";
-  }
-
-  res.json({ reply });
-});
-
-
-// Alapértelmezett magyar, szakmai prompt
-const SYSTEM_PROMPT =
-  "Te egy tapasztalt magyar könyvelő és adótanácsadó vagy. " +
-  "Mindig természetes, szakmai és közérthető stílusban válaszolj. " +
-  "Kerüld a felesleges körmondatokat és a gépies szóhasználatot. " +
-  "Válaszaid legyenek pontosak, lényegre törőek, és ha lehet, hivatkozz a magyar jogi vagy adózási gyakorlatra. " +
-  "Csak könyveléssel, adózással, járulékokkal, NAV-bevallásokkal és vállalkozások pénzügyeivel kapcsolatos kérdésekre válaszolj. " +
-  "Ha a kérdés nem ide tartozik, mondd ezt: 'Sajnálom, de csak könyvelési és adózási témákban tudok segíteni.'";
-
+// 🔹 AI hívás
 async function askModel(question, model) {
   try {
-    // Speciális rendszerprompt Mixtralhoz
-    let localizedPrompt = model.includes("mixtral")
-      ? "Mindig **magyar nyelven**, udvarias, szakmai hangnemben válaszolj. " +
-        "Ne köszönj, ne szólítsd meg a felhasználót ('Halló', 'Üdvözlöm' stb.), hanem közvetlenül kezdd a választ. " +
-        "Témakör: könyvelés, adózás, NAV-bevallások, járulékok, vállalkozások pénzügyei. " +
-        "Ha a kérdés nem ide tartozik, mondd: 'Sajnálom, de csak könyvelési és adózási témákban tudok segíteni.'"
-      : SYSTEM_PROMPT;
-
-    // Extra magyarosítás nem magyar modellekhez (LLaMA, Qwen, Phi)
-    if (model.includes("llama") || model.includes("qwen") || model.includes("phi")) {
-      localizedPrompt += " Válaszolj magyar nyelven, természetes stílusban.";
-    }
-
-    // API-hívás
     const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -88,71 +70,82 @@ async function askModel(question, model) {
       body: JSON.stringify({
         model,
         messages: [
-          { role: "system", content: localizedPrompt },
+          { role: "system", content: SYSTEM_PROMPT },
           { role: "user", content: question },
         ],
         max_tokens: 700,
       }),
-      timeout: 15000
     });
 
-    if (!response.ok) {
-      const text = await response.text();
-      console.error(`${model} HTTP-hiba: ${response.status}`, text);
-      return null;
+    const text = await response.text();
+    let data = {};
+    try {
+      data = JSON.parse(text);
+    } catch {
+      console.warn(`⚠️ JSON parse hiba (${model}):`, text.slice(0, 150));
+      throw new Error("Érvénytelen válasz az OpenRouter-től");
     }
 
-    const data = await response.json();
-    if (data?.choices?.[0]?.message?.content) {
-      return data.choices[0].message.content.trim();
+    if (response.ok && data?.choices?.[0]?.message?.content) {
+      return data.choices[0].message.content;
+    } else {
+      throw new Error(data.error?.message || "Ismeretlen hiba");
     }
-
-    console.warn(`${model} üres válasz:`, data);
-    return null;
-
   } catch (err) {
-    console.error(`${model} hálózati hiba:`, err.message);
+    console.error(`❌ ${model} hiba:`, err.message);
     return null;
   }
 }
 
+// 🔹 API végpont
 app.get("/api", async (req, res) => {
   const question = req.query.q;
-  if (!question) {
-    return res.json({ reply: "Kérlek, írj be egy kérdést!" });
+  if (!question) return res.json({ reply: "Kérlek, írj be egy kérdést!" });
+
+  // ⏰ Aktuális dátum és nap neve
+  const dateObj = new Date();
+  const dayNames = ["vasárnap", "hétfő", "kedd", "szerda", "csütörtök", "péntek", "szombat"];
+  const currentDayName = dayNames[dateObj.getDay()];
+  const currentDate = dateObj.toLocaleDateString("hu-HU", { timeZone: "Europe/Budapest" });
+
+  // 📊 Ellenőrizzük, hogy adózási / jogi témáról van-e szó
+  const isTaxTopic = /(adó|járulék|kata|szja|bt|kft|vállalkozó|nav|bevallás|szabály|rendelet|törvény|mentesség)/i.test(question);
+  
+  let externalContext = "";
+  if (isTaxTopic) {
+    console.log("🔍 Adózási vagy jogi téma észlelve, friss források lekérése...");
+    externalContext = await getTaxContext(question);
   }
 
+  // 📦 A modellnek küldött teljes prompt
+  const contextualQuestion = `
+A mai dátum: ${currentDate}, ${currentDayName}.
+${externalContext ? `Friss információk hivatalos forrásokból:\n${externalContext}\n\n` : ""}
+Kérdés: ${question}
+`;
+
+  // 🚀 AI modellek futtatása
   let reply = null;
-
   for (const model of MODELS) {
-    console.log(`Próbálkozás a modellel: ${model}`);
-    reply = await askModel(question, model);
-
-    if (!reply) {
-      console.log(`Első próbálkozás sikertelen, újra ${model}...`);
-      await new Promise(r => setTimeout(r, 3000));
-      reply = await askModel(question, model);
-    }
-
+    console.log(`🔄 Próbálkozás a modellel: ${model}`);
+    reply = await askModel(contextualQuestion, model);
     if (reply) {
-      console.log(`${model} sikeresen válaszolt.`);
+      console.log(`✅ ${model} sikeresen válaszolt.`);
       break;
     } else {
-      console.warn(`${model} nem adott választ, próbálom a következőt...`);
+      console.log(`⚠️ ${model} nem válaszolt, következő modell...`);
     }
   }
 
   if (!reply) {
-    console.error("Egyik modell sem válaszolt.");
-    reply =
-      "Sajnálom, jelenleg nem tudtam elérni az AI szervert, vagy minden modell korlátozott. " +
-      "Kérlek, próbáld meg pár perc múlva újra.";
+    reply = "Sajnálom, most nem tudtam friss információt adni. Kérlek, próbáld meg pár perc múlva újra. 📘";
   }
 
   res.json({ reply });
 });
 
+// 🔹 Szerver indítása
 const PORT = process.env.PORT || 10000;
-app.listen(PORT, () =>
-  console.log(`AI proxy fut a ${PORT} porton – magyar könyvelői stílussal, automatikus Mixtral-javítással!`)
-);
+app.listen(PORT, () => {
+  console.log(`🚀 AI proxy fut a ${PORT} porton – valós NAV és Jogtár lekérdezésekkel!`);
+});
