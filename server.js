@@ -7,27 +7,35 @@ app.use(cors());
 app.use(express.json());
 
 app.get("/", (req, res) => {
-  res.send("AI proxy fut – Gemma 2.0 + Gemini 2.0 Flash, magyar szakmai stílussal!");
+  res.send("AI proxy fut – Gemma 2.0 + Gemini 2.0 Flash + Mixtral fallback, magyar stílusban!");
 });
 
-// Modellek prioritás szerint: Gemma → Gemini → Mixtral
+// Modellek prioritási sorrendben
 const MODELS = [
   "google/gemma-2-9b-it:free",
   "google/gemini-2.0-flash-exp:free",
   "mistralai/mixtral-8x7b-instruct"
 ];
 
-// Szakmai, semleges hangnem
+// Alapértelmezett magyar, szakmai prompt
 const SYSTEM_PROMPT =
   "Te egy tapasztalt magyar könyvelő és adótanácsadó vagy. " +
   "Mindig természetes, szakmai és közérthető stílusban válaszolj. " +
   "Kerüld a felesleges körmondatokat és a gépies szóhasználatot. " +
   "Válaszaid legyenek pontosak, lényegre törőek, és ha lehet, hivatkozz a magyar jogi vagy adózási gyakorlatra. " +
   "Csak könyveléssel, adózással, járulékokkal, NAV-bevallásokkal és vállalkozások pénzügyeivel kapcsolatos kérdésekre válaszolj. " +
-  "Ha a kérdés nem ide tartozik, mondd azt: 'Sajnálom, de csak könyvelési és adózási témákban tudok segíteni.'";
+  "Ha a kérdés nem ide tartozik, mondd ezt: 'Sajnálom, de csak könyvelési és adózási témákban tudok segíteni.'";
 
 async function askModel(question, model) {
   try {
+    // Speciális rendszerprompt Mixtralhoz (magyar kényszerítés, megszólítás tiltás)
+    const localizedPrompt = model.includes("mixtral")
+      ? "Mindig **magyar nyelven**, udvarias, szakmai hangnemben válaszolj. " +
+        "Ne köszönj, ne szólítsd meg a felhasználót ('Halló', 'Üdvözlöm' stb.), hanem közvetlenül kezd a választ. " +
+        "Témakör: könyvelés, adózás, NAV-bevallások, járulékok, vállalkozások pénzügyei. " +
+        "Ha a kérdés nem ide tartozik, mondd: 'Sajnálom, de csak könyvelési és adózási témákban tudok segíteni.'"
+      : SYSTEM_PROMPT;
+
     const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -39,10 +47,10 @@ async function askModel(question, model) {
       body: JSON.stringify({
         model,
         messages: [
-          { role: "system", content: SYSTEM_PROMPT },
+          { role: "system", content: localizedPrompt },
           { role: "user", content: question },
         ],
-        max_tokens: 600,
+        max_tokens: 700,
       }),
       timeout: 15000
     });
@@ -55,7 +63,7 @@ async function askModel(question, model) {
 
     const data = await response.json();
     if (data?.choices?.[0]?.message?.content) {
-      return data.choices[0].message.content;
+      return data.choices[0].message.content.trim();
     }
 
     console.warn(`${model} üres válasz:`, data);
@@ -96,8 +104,8 @@ app.get("/api", async (req, res) => {
   if (!reply) {
     console.error("Egyik modell sem válaszolt.");
     reply =
-      "Sajnálom, jelenleg nem tudtam elérni az AI szervert vagy mindhárom modell korlátozott. " +
-      "Kérlek, próbálja meg néhány perc múlva újra.";
+      "Sajnálom, jelenleg nem tudtam elérni az AI szervert, vagy minden modell korlátozott. " +
+      "Kérlek, próbáld meg pár perc múlva újra.";
   }
 
   res.json({ reply });
@@ -105,5 +113,5 @@ app.get("/api", async (req, res) => {
 
 const PORT = process.env.PORT || 10000;
 app.listen(PORT, () =>
-  console.log(`AI proxy fut a ${PORT} porton – szakmai magyar könyvelői stílussal!`)
+  console.log(`AI proxy fut a ${PORT} porton – magyar könyvelői stílussal, automatikus Mixtral-javítással!`)
 );
