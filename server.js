@@ -31,14 +31,20 @@ const SYSTEM_PROMPT =
 
 async function askModel(question, model) {
   try {
-    // Speciális rendszerprompt Mixtralhoz (magyar kényszerítés, megszólítás tiltás)
-    const localizedPrompt = model.includes("mixtral")
+    // Speciális rendszerprompt Mixtralhoz
+    let localizedPrompt = model.includes("mixtral")
       ? "Mindig **magyar nyelven**, udvarias, szakmai hangnemben válaszolj. " +
-        "Ne köszönj, ne szólítsd meg a felhasználót ('Halló', 'Üdvözlöm' stb.), hanem közvetlenül kezd a választ. " +
+        "Ne köszönj, ne szólítsd meg a felhasználót ('Halló', 'Üdvözlöm' stb.), hanem közvetlenül kezdd a választ. " +
         "Témakör: könyvelés, adózás, NAV-bevallások, járulékok, vállalkozások pénzügyei. " +
         "Ha a kérdés nem ide tartozik, mondd: 'Sajnálom, de csak könyvelési és adózási témákban tudok segíteni.'"
       : SYSTEM_PROMPT;
 
+    // Extra magyarosítás nem magyar modellekhez (LLaMA, Qwen, Phi)
+    if (model.includes("llama") || model.includes("qwen") || model.includes("phi")) {
+      localizedPrompt += " Válaszolj magyar nyelven, természetes stílusban.";
+    }
+
+    // API-hívás
     const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -118,4 +124,3 @@ const PORT = process.env.PORT || 10000;
 app.listen(PORT, () =>
   console.log(`AI proxy fut a ${PORT} porton – magyar könyvelői stílussal, automatikus Mixtral-javítással!`)
 );
-
