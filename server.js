@@ -7,24 +7,24 @@ app.use(cors());
 app.use(express.json());
 
 app.get("/", (req, res) => {
-  res.send("AI proxy fut – Gemma 2.0 + Gemini 2.0 Flash fallback, természetes magyar nyelven!");
+  res.send("AI proxy fut – Gemma 2.0 + Gemini 2.0 Flash, tegeződő magyar stílussal!");
 });
 
-// Első: Gemma 2.0 (free, stabil, magyarul jól beszél)
-// Második: Gemini 2.0 Flash (free, ha Gemma túlterhelt)
+// 🔹 Első: Gemma 2.0 (free, stabil, jól beszél magyarul)
+// 🔹 Második: Gemini 2.0 Flash (free, gyorsabb fallback)
 const MODELS = [
   "google/gemma-2-9b-it:free",
   "google/gemini-2.0-flash-exp:free"
 ];
 
-// A közös magyar nyelvi system prompt
+// 💬 Közös tegeződő system prompt
 const SYSTEM_PROMPT =
   "Te egy tapasztalt magyar könyvelő és adótanácsadó vagy. " +
-  "Mindig helyes, természetes magyar nyelven fogalmazz, kerülve a gépies vagy idegen szerkezeteket. " +
-  "Írj úgy, mintha egy magyar könyvelő személyesen magyarázná el a választ, közérthetően és szakmailag helyesen. " +
-  "Válaszaid legyenek udvariasak, pontosak és emberközeliek. " +
+  "Mindig természetes, barátságos, **tegeződő stílusban** fogalmazz, mintha egy ügyfeleddel beszélnél. " +
+  "Kerüld a gépies vagy fordításízű mondatokat, és válaszolj közvetlenül, emberien. " +
+  "Írj úgy, mintha egy magyar könyvelő magyarázná el a választ egyszerűen, érthetően és pontosan. " +
   "Csak könyveléssel, adózással, járulékokkal, NAV-bevallásokkal és vállalkozások pénzügyeivel kapcsolatos kérdésekre válaszolj. " +
-  "Ha a kérdés nem ebbe a témába tartozik, mondd azt: 'Sajnálom, csak könyvelési kérdésekben tudok segíteni.'";
+  "Ha a kérdés nem ide tartozik, mondd ezt: 'Sajnálom, de csak könyvelési és adózási témákban tudok segíteni.'";
 
 async function askModel(question, model) {
   try {
@@ -51,7 +51,7 @@ async function askModel(question, model) {
     try {
       data = JSON.parse(text);
     } catch {
-      console.warn(`JSON parse hiba (${model}):`, text.slice(0, 200));
+      console.warn(`⚠️ JSON parse hiba (${model}):`, text.slice(0, 200));
       throw new Error("Érvénytelen JSON válasz az OpenRouter-től");
     }
 
@@ -62,7 +62,7 @@ async function askModel(question, model) {
       throw new Error(err);
     }
   } catch (err) {
-    console.error(`${model} hiba:`, err.message);
+    console.error(`❌ ${model} hiba:`, err.message);
     return null;
   }
 }
@@ -74,24 +74,24 @@ app.get("/api", async (req, res) => {
   let reply = null;
 
   for (const model of MODELS) {
-    console.log(`Próbálkozás ezzel a modellel: ${model}`);
+    console.log(`🔄 Próbálkozás ezzel a modellel: ${model}`);
     reply = await askModel(question, model);
 
-    // ha nem sikerül, próbálja újra egyszer ugyanazzal a modellel
+    // újrapróbálás, ha az első kérés hibázik
     if (!reply) {
-      console.log(`Újrapróbálás 3 másodperc múlva (${model})...`);
+      console.log(`⚠️ Újrapróbálás 3 másodperc múlva (${model})...`);
       await new Promise(r => setTimeout(r, 3000));
       reply = await askModel(question, model);
     }
 
     if (reply) {
-      console.log(`${model} sikeresen válaszolt.`);
+      console.log(`✅ ${model} sikeresen válaszolt.`);
       break;
     }
   }
 
   if (!reply) {
-    reply = "Sajnálom, egyik modell sem tudott válaszolni. Kérlek, próbáld meg később újra.";
+    reply = "Sajnálom, egyik modell sem tudott válaszolni most. Próbáld meg egy kicsit később újra. 🙂";
   }
 
   res.json({ reply });
@@ -99,5 +99,5 @@ app.get("/api", async (req, res) => {
 
 const PORT = process.env.PORT || 10000;
 app.listen(PORT, () =>
-  console.log(`AI proxy fut a ${PORT} porton – Gemma + Gemini, magyar nyelvi optimalizálással!`)
+  console.log(`🚀 AI proxy fut a ${PORT} porton – tegeződő magyar könyvelői stílussal!`)
 );
