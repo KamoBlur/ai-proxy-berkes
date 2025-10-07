@@ -10,11 +10,12 @@ app.get("/", (req, res) => {
   res.send("AI proxy fut – Gemma 2.0 + Gemini 2.0 Flash, tegeződő magyar stílussal!");
 });
 
-// 🔹 Első: Gemma 2.0 (free, stabil, jól beszél magyarul)
-// 🔹 Második: Gemini 2.0 Flash (free, gyorsabb fallback)
+// Első: Gemma 2.0 (free, stabil, jól beszél magyarul)
+// Második: Gemini 2.0 Flash (free, gyorsabb fallback)
 const MODELS = [
   "google/gemma-2-9b-it:free",
-  "google/gemini-2.0-flash-exp:free"
+  "google/gemini-2.0-flash-exp:free",
+  "mistralai/mixtral-8x7b-instruct"   // fallback, ha minden Google limitált
 ];
 
 // 💬 Közös tegeződő system prompt
@@ -99,5 +100,6 @@ app.get("/api", async (req, res) => {
 
 const PORT = process.env.PORT || 10000;
 app.listen(PORT, () =>
-  console.log(`🚀 AI proxy fut a ${PORT} porton – tegeződő magyar könyvelői stílussal!`)
+  console.log(`AI proxy fut a ${PORT} porton – tegeződő magyar könyvelői stílussal!`)
 );
+
