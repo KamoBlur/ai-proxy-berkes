@@ -7,25 +7,25 @@ app.use(cors());
 app.use(express.json());
 
 app.get("/", (req, res) => {
-  res.send("AI proxy fut – Gemma 2.0 + Gemini 2.0 Flash, tegeződő magyar stílussal!");
+  res.send("AI proxy fut – Gemma 2.0 + Gemini 2.0 Flash, magyar szakmai stílussal!");
 });
 
-// Modellprioritás: Gemma → Gemini → Mixtral fallback
+// Modellek prioritás szerint: Gemma → Gemini → Mixtral
 const MODELS = [
   "google/gemma-2-9b-it:free",
   "google/gemini-2.0-flash-exp:free",
   "mistralai/mixtral-8x7b-instruct"
 ];
 
+// Szakmai, semleges hangnem
 const SYSTEM_PROMPT =
   "Te egy tapasztalt magyar könyvelő és adótanácsadó vagy. " +
-  "Mindig természetes, barátságos, **tegeződő stílusban** fogalmazz, mintha egy ügyfeleddel beszélnél. " +
-  "Kerüld a gépies vagy fordításízű mondatokat, és válaszolj közvetlenül, emberien. " +
-  "Írj úgy, mintha egy magyar könyvelő magyarázná el a választ egyszerűen, érthetően és pontosan. " +
+  "Mindig természetes, szakmai és közérthető stílusban válaszolj. " +
+  "Kerüld a felesleges körmondatokat és a gépies szóhasználatot. " +
+  "Válaszaid legyenek pontosak, lényegre törőek, és ha lehet, hivatkozz a magyar jogi vagy adózási gyakorlatra. " +
   "Csak könyveléssel, adózással, járulékokkal, NAV-bevallásokkal és vállalkozások pénzügyeivel kapcsolatos kérdésekre válaszolj. " +
-  "Ha a kérdés nem ide tartozik, mondd ezt: 'Sajnálom, de csak könyvelési és adózási témákban tudok segíteni.'";
+  "Ha a kérdés nem ide tartozik, mondd azt: 'Sajnálom, de csak könyvelési és adózási témákban tudok segíteni.'";
 
-// === Fő lekérdező függvény ===
 async function askModel(question, model) {
   try {
     const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
@@ -44,7 +44,7 @@ async function askModel(question, model) {
         ],
         max_tokens: 600,
       }),
-      timeout: 15000 // 15 másodperc után megszakítjuk
+      timeout: 15000
     });
 
     if (!response.ok) {
@@ -62,16 +62,11 @@ async function askModel(question, model) {
     return null;
 
   } catch (err) {
-    if (err.type === "request-timeout") {
-      console.error(`${model} időtúllépés:`, err.message);
-    } else {
-      console.error(`${model} hálózati hiba:`, err.message);
-    }
+    console.error(`${model} hálózati hiba:`, err.message);
     return null;
   }
 }
 
-// === Fő API végpont ===
 app.get("/api", async (req, res) => {
   const question = req.query.q;
   if (!question) {
@@ -82,10 +77,8 @@ app.get("/api", async (req, res) => {
 
   for (const model of MODELS) {
     console.log(`Próbálkozás a modellel: ${model}`);
-
     reply = await askModel(question, model);
 
-    // újrapróbálás 1×, ha az első sikertelen volt
     if (!reply) {
       console.log(`Első próbálkozás sikertelen, újra ${model}...`);
       await new Promise(r => setTimeout(r, 3000));
@@ -101,17 +94,16 @@ app.get("/api", async (req, res) => {
   }
 
   if (!reply) {
-    console.error("Egyik modell sem válaszolt, felhasználónak hibaüzenet küldése.");
+    console.error("Egyik modell sem válaszolt.");
     reply =
       "Sajnálom, jelenleg nem tudtam elérni az AI szervert vagy mindhárom modell korlátozott. " +
-      "Kérlek, próbáld meg pár perc múlva újra. Ha a hiba ismétlődik, ellenőrizd az OpenRouter API-kulcsot.";
+      "Kérlek, próbálja meg néhány perc múlva újra.";
   }
 
   res.json({ reply });
 });
 
-// === Indítás ===
 const PORT = process.env.PORT || 10000;
 app.listen(PORT, () =>
-  console.log(`AI proxy fut a ${PORT} porton – megbízható magyar könyvelői asszisztens!`)
+  console.log(`AI proxy fut a ${PORT} porton – szakmai magyar könyvelői stílussal!`)
 );
