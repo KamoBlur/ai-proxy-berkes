@@ -20,6 +20,34 @@ const MODELS = [
   "mistralai/mixtral-8x7b-instruct"       // fizetős, de gyakran nyitott fallback
 ];
 
+app.get("/api", async (req, res) => {
+  const question = req.query.q;
+  if (!question) return res.json({ reply: "Kérlek, írj be egy kérdést!" });
+
+  // 🔹 aktuális dátum és idő automatikusan
+  const currentDate = new Date().toLocaleString("hu-HU", { timeZone: "Europe/Budapest" });
+
+  const contextualQuestion = `A mai dátum: ${currentDate}. ${question}`;
+
+  let reply = null;
+
+  for (const model of MODELS) {
+    console.log(`Próbálkozás a modellel: ${model}`);
+    reply = await askModel(contextualQuestion, model);
+    if (reply) {
+      console.log(`${model} sikeresen válaszolt.`);
+      break;
+    }
+  }
+
+  if (!reply) {
+    reply = "Sajnálom, jelenleg nem tudtam elérni az AI szervert. Kérlek, próbáld meg később.";
+  }
+
+  res.json({ reply });
+});
+
+
 // Alapértelmezett magyar, szakmai prompt
 const SYSTEM_PROMPT =
   "Te egy tapasztalt magyar könyvelő és adótanácsadó vagy. " +
@@ -124,3 +152,4 @@ const PORT = process.env.PORT || 10000;
 app.listen(PORT, () =>
   console.log(`AI proxy fut a ${PORT} porton – magyar könyvelői stílussal, automatikus Mixtral-javítással!`)
 );
+
