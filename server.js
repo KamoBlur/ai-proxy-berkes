@@ -7,14 +7,14 @@ app.use(cors());
 app.use(express.json());
 
 app.get("/", (req, res) => {
-  res.send("AI proxy running with Gemini 2.0 + Gemma 2 + Mixtral fallback!");
+  res.send("AI proxy running with Gemini 2.0 Flash (free)!");
 });
 
-// Modellek sorrendben (1. free → 2. free → 3. fizetős)
+// Modellek — Gemini az elsődleges, Gemma tartalék, Mixtral fizetős backup
 const models = [
-  "google/gemini-2.0-flash-exp:free",  // gyors, ingyenes
-  "google/gemma-2-9b:free",            // pontos, szintén ingyenes
-  "mistralai/mixtral-8x7b-instruct"    // fizetős tartalék
+  "google/gemini-2.0-flash-exp:free",  // ingyenes, gyors, 2025-ös
+  "google/gemma-2-9b:free",            // szintén free backup
+  "mistralai/mixtral-8x7b-instruct"    // fizetős tartalék, ha minden más leáll
 ];
 
 app.get("/api", async (req, res) => {
@@ -24,13 +24,13 @@ app.get("/api", async (req, res) => {
   let reply = null;
 
   for (const model of models) {
-    console.log(`Próbálkozás: ${model}`);
+    console.log(`Próbálkozás ezzel a modellel: ${model}`);
     try {
       const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
         method: "POST",
         headers: {
           "Authorization": `Bearer ${process.env.OPENROUTER_API_KEY}`,
-          "HTTP-Referer": "https://ai-proxy-berkes.onrender.com", // ajánlott beállítás
+          "HTTP-Referer": "https://ai-proxy-berkes.onrender.com", // saját domain
           "X-Title": "AI Proxy Berkes",
           "Content-Type": "application/json",
         },
@@ -38,9 +38,10 @@ app.get("/api", async (req, res) => {
           model,
           messages: [
             {
-  role: "system",
-  content: "Te egy tapasztalt magyar könyvelő és adótanácsadó vagy. Csak könyveléssel, adózással, járulékokkal, NAV-bevallásokkal és vállalkozások pénzügyeivel kapcsolatos kérdésekre válaszolj. Válaszaid legyenek pontosak, szakmaiak, és ha lehet, hivatkozz a magyar jogi vagy adózási gyakorlatra. Ha a kérdés nem ebbe a témába tartozik, mondd azt, hogy 'Sajnálom, csak könyvelési kérdésekben tudok segíteni.'"
-},
+              role: "system",
+              content:
+                "Te egy tapasztalt magyar könyvelő és adótanácsadó vagy. Csak könyveléssel, adózással, járulékokkal, NAV-bevallásokkal és vállalkozások pénzügyeivel kapcsolatos kérdésekre válaszolj. Válaszaid legyenek pontosak, szakmaiak, és ha lehet, hivatkozz a magyar jogi vagy adózási gyakorlatra. Ha a kérdés nem ebbe a témába tartozik, mondd azt, hogy 'Sajnálom, csak könyvelési kérdésekben tudok segíteni.'",
+            },
             { role: "user", content: question },
           ],
         }),
@@ -53,7 +54,7 @@ app.get("/api", async (req, res) => {
         console.log(`${model} sikeresen válaszolt.`);
         break;
       } else {
-        console.warn(`⚠${model} hiba: ${data.error?.message || "ismeretlen hiba"}`);
+        console.warn(`⚠ ${model} hiba: ${data.error?.message || "ismeretlen hiba"}`);
       }
     } catch (error) {
       console.error(`${model} API-hiba:`, error.message);
@@ -67,6 +68,6 @@ app.get("/api", async (req, res) => {
   res.json({ reply });
 });
 
-// Port beállítása (Render automatikusan adja)
+// Render automatikus PORT kezelése
 const PORT = process.env.PORT || 10000;
-app.listen(PORT, () => console.log(`AI proxy fut a ${PORT} porton, fallback aktív!`));
+app.listen(PORT, () => console.log(`AI proxy fut a ${PORT} porton, Gemini 2.0 Flash (free) aktív!`));
