@@ -24,16 +24,20 @@ app.get("/api", async (req, res) => {
   const question = req.query.q;
   if (!question) return res.json({ reply: "Kérlek, írj be egy kérdést!" });
 
-  // 🔹 aktuális dátum és idő automatikusan
-  const currentDate = new Date().toLocaleString("hu-HU", { timeZone: "Europe/Budapest" });
+  // Itt kezdődik az új dátum + nap logika
+  const dateObj = new Date();
+  const dayNames = ["vasárnap", "hétfő", "kedd", "szerda", "csütörtök", "péntek", "szombat"];
+  const currentDayName = dayNames[dateObj.getDay()];
 
-  const contextualQuestion = `A mai dátum: ${currentDate}. ${question}`;
+  const currentDate = dateObj.toLocaleDateString("hu-HU", { timeZone: "Europe/Budapest" });
+  const contextualQuestion = `A mai dátum: ${currentDate}, ${currentDayName}. ${question}`;
+  // Itt ér véget az új rész
 
   let reply = null;
 
   for (const model of MODELS) {
     console.log(`Próbálkozás a modellel: ${model}`);
-    reply = await askModel(contextualQuestion, model);
+    reply = await askModel(contextualQuestion, model); // a kérdés helyett most a "contextualQuestion"-t küldjük
     if (reply) {
       console.log(`${model} sikeresen válaszolt.`);
       break;
@@ -152,4 +156,3 @@ const PORT = process.env.PORT || 10000;
 app.listen(PORT, () =>
   console.log(`AI proxy fut a ${PORT} porton – magyar könyvelői stílussal, automatikus Mixtral-javítással!`)
 );
-
