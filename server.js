@@ -12,9 +12,12 @@ app.get("/", (req, res) => {
 
 // Modellek prioritási sorrendben
 const MODELS = [
-  "google/gemma-2-9b-it:free",
-  "google/gemini-2.0-flash-exp:free",
-  "mistralai/mixtral-8x7b-instruct"
+  "google/gemma-2-9b-it:free",            // jó magyar nyelv, precíz
+  "google/gemini-2.0-flash-exp:free",     // gyors, de napi limitált
+  "meta-llama/llama-3.1-8b-instruct:free",// stabil, angol, de fordítható
+  "qwen/qwen-2-7b-instruct:free",         // kínai fejlesztés, de nagyon stabil, magyarul is elmegy
+  "microsoft/phi-3-mini-128k-instruct:free", // gyors és ingyenes
+  "mistralai/mixtral-8x7b-instruct"       // fizetős, de gyakran nyitott fallback
 ];
 
 // Alapértelmezett magyar, szakmai prompt
@@ -115,3 +118,4 @@ const PORT = process.env.PORT || 10000;
 app.listen(PORT, () =>
   console.log(`AI proxy fut a ${PORT} porton – magyar könyvelői stílussal, automatikus Mixtral-javítással!`)
 );
+
